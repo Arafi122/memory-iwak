@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWAK Memory Site HANSCRN</title>
+    <style>
+        :root {
+            --paper-color: #f4f1ea;
+            --ink-color: #1a1a1a;
+            --accent-red: #d32f2f;
+            --border-color: #333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: #222;
+            background-image: radial-gradient(#333 1px, transparent 1px);
+            background-size: 20px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--ink-color);
+        }
+
+        .app-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            background: var(--paper-color);
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            padding: 10px;
+            border: 1px solid #999;
+            overflow: hidden; /* Mencegah overflow scrollbar */
+        }
+
+        .ui-header {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 2px double var(--ink-color);
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            font-family: 'Times New Roman', serif;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            font-size: 1.5rem;
+            color: var(--ink-color);
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+        }
+        .screen.active { display: flex; }
+
+        /* Camera Area */
+        .camera-container {
+            width: 100%;
+            position: relative;
+            background: #000;
+            border: 4px solid var(--ink-color);
+            overflow: hidden;
+            aspect-ratio: 1/1; /* Agar kotak */
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .countdown {
+            font-family: 'Times New Roman', serif;
+            font-size: 5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 0 black;
+            display: none;
+        }
+
+        .flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Controls */
+        .btn {
+            background: var(--ink-color);
+            color: var(--paper-color);
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+        }
+
+        .btn:hover { background: var(--accent-red); }
+        .btn:disabled { background: #666; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--ink-color);
+            border: 2px solid var(--ink-color);
+            margin-top: 10px;
+        }
+        .btn-secondary:hover { background: #ddd; }
+
+        .status-text {
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-align: center;
+            min-height: 1.2em;
+            color: #d32f2f;
+        }
+
+        /* Canvas Output */
+        #canvas-container {
+            width: 100%;
+            overflow-y: auto; /* Scroll jika gambar tinggi */
+            max-height: 70vh;
+            border: 1px solid #ccc;
+            background: #888;
+        }
+        
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #f4f1ea; /* Fallback color */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <div class="ui-header">
+            <h1>IWAK Memory Site <br><span style="font-size: 0.7em; font-family: Courier New;">HANSCRN EDITION</span></h1>
+        </div>
+
+        <!-- INTRO SCREEN -->
+        <section id="intro-screen" class="screen active">
+            <div style="text-align: center; padding: 20px; border: 2px dashed #333; width: 100%;">
+                <h3 style="margin-bottom: 10px;">DAILY NEWS: PURBALINGGA</h3>
+                <p style="font-size: 0.85rem; margin-bottom: 20px;">
+                    Ambil 2 foto untuk membuat halaman koran kenangan.
+                </p>
+            </div>
+            <button class="btn" onclick="startCamera()">Mulai Sesi Foto</button>
+        </section>
+
+        <!-- CAMERA SCREEN -->
+        <section id="camera-screen" class="screen">
+            <div class="camera-container">
+                <video id="videoFeed" autoplay playsinline muted></video>
+                <div class="overlay">
+                    <div id="countdown" class="countdown">3</div>
+                    <div id="flash" class="flash"></div>
+                </div>
+            </div>
+            <p id="status-text" class="status-text">Siap mengambil foto...</p>
+            <button class="btn" id="btn-capture" onclick="takeSequence()">Ambil Foto</button>
+            <button class="btn btn-secondary" onclick="goHome()">Batal</button>
+        </section>
+
+        <!-- RESULT SCREEN -->
+        <section id="result-screen" class="screen">
+            <h3 style="font-family: 'Times New Roman'; margin-bottom: 10px; font-size: 1.2rem;">EDISI TERBIT</h3>
+            <div id="canvas-container">
+                <canvas id="resultCanvas" width="800" height="1100"></canvas>
+            </div>
+            <div style="display: flex; gap: 10px; width: 100%;">
+                <button class="btn" onclick="downloadImage()">Download Berita</button>
+                <button class="btn btn-secondary" onclick="retake()">Ulang Foto</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // --- KONFIGURASI ---
+        const CONFIG = {
+            width: 800,
+            height: 1100,
+            photos: 2
+        };
+
+        // --- DATA TEKS ---
+        const CONTENT = {
+            header: "PURBALINGGA",
+            date: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            topHeadline: "IWAK stands for “In a World of Adulting & Kangen”",
+            bottomHeadline: "REUNION IN A SMALL TOWN",
+            articleTop: `IWAK stands for “In a World of Adulting & Kangen”—a certified support system for former classmates who used to meet every single day in high school and now have to fight schedules, jobs, and responsibilities just to say, “eh ketemu yuk.” We once shared the same classroom, the same jokes, the same chaos, and somehow survived exams together while thinking life would stay this simple forever (spoiler: it didn’t).`,
+            articleBottom: `Today we reunite in Purbalingga, a small calm town that feels like a pause button on life. The laughs are still loud, the stories are just more complicated, and the time together feels extra precious because we all know this moment might not happen again soon—or ever in the same way. But for now, we’re here, fully present, proving that even if life moves us apart, IWAK still swims back to the same place 🐟.`,
+            footer: "PURBALINGGA DAILY NEWS | PRINTED BY HANSCRN"
+        };
+
+        // --- STATE ---
+        let stream = null;
+        let photos = [];
+        let isProcessing = false;
+
+        // --- DOM ---
+        const screens = {
+            intro: document.getElementById('intro-screen'),
+            camera: document.getElementById('camera-screen'),
+            result: document.getElementById('result-screen')
+        };
+        const video = document.getElementById('videoFeed');
+        const countdownEl = document.getElementById('countdown');
+        const flashEl = document.getElementById('flash');
+        const statusText = document.getElementById('status-text');
+        const canvas = document.getElementById('resultCanvas');
+
+        // --- NAVIGASI ---
+        function showScreen(s) {
+            Object.values(screens).forEach(el => el.classList.remove('active'));
+            screens[s].classList.add('active');
+        }
+
+        function goHome() {
+            stopCamera();
+            photos = [];
+            showScreen('intro');
+        }
+
+        function retake() {
+            photos = [];
+            showScreen('camera');
+            startCamera();
+        }
+
+        // --- KAMERA ---
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 1280 }, height: { ideal: 1280 }, facingMode: "user" } 
+                });
+                video.srcObject = stream;
+                
+                // Tunggu video siap dimensi baru
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                
+                showScreen('camera');
+            } catch (err) {
+                alert("Kamera tidak dapat diakses: " + err.message);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+        }
+
+        // --- LOGIKA AMBIL FOTO (FIXED) ---
+        async function takeSequence() {
+            if (isProcessing) return;
+            isProcessing = true;
+            photos = [];
+
+            for (let i = 1; i <= CONFIG.photos; i++) {
+                statusText.textContent = `Foto ${i}...`;
+                await countdown(3);
+                
+                // Capture logic
+                flashEl.style.opacity = 1;
+                setTimeout(() => flashEl.style.opacity = 0, 100);
+                
+                const c = document.createElement('canvas');
+                
+                // PASTIKAN DIMENSI VIDEO ADA
+                if (video.videoWidth === 0 || video.videoHeight === 0) {
+                    alert("Video belum siap. Coba lagi.");
+                    isProcessing = false;
+                    return;
+                }
+
+                const size = Math.min(video.videoWidth, video.videoHeight);
+                c.width = size;
+                c.height = size;
+                const ctx = c.getContext('2d');
+                
+                // Mirror & Crop
+                ctx.translate(size, 0); ctx.scale(-1, 1);
+                const sx = (video.videoWidth - size) / 2;
+                const sy = (video.videoHeight - size) / 2;
+                ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+                
+                photos.push(c);
+
+                if (i < CONFIG.photos) {
+                    statusText.textContent = "Siap untuk pose kedua...";
+                    await wait(1500);
+                }
+            }
+
+            stopCamera();
+            
+            // Panggil fungsi generate
+            try {
+                generateNewspaper();
+                showScreen('result');
+            } catch (e) {
+                console.error(e);
+                alert("Gagal memproses gambar.");
+            }
+            
+            isProcessing = false;
+        }
+
+        function countdown(n) {
+            return new Promise(resolve => {
+                countdownEl.style.display = 'block';
+                let count = n;
+                countdownEl.textContent = count;
+                const timer = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countdownEl.textContent = count;
+                    } else {
+                        clearInterval(timer);
+                        countdownEl.textContent = "CLICK!";
+                        setTimeout(() => {
+                            countdownEl.style.display = 'none';
+                            resolve();
+                        }, 500);
+                    }
+                }, 1000);
+            });
+        }
+
+        function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        // --- CORE: DRAW NEWSPAPER LAYOUT (FIXED COORDINATES) ---
+        function generateNewspaper() {
+            const ctx = canvas.getContext('2d');
+            
+            // Reset canvas size to fix state
+            canvas.width = CONFIG.width;
+            canvas.height = CONFIG.height;
+
+            const w = CONFIG.width;
+            const h = CONFIG.height;
+
+            // 1. Background Paper
+            ctx.fillStyle = "#f4f1ea";
+            ctx.fillRect(0, 0, w, h);
+
+            // 2. Header Frame
+            const headerH = 140;
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fillRect(0, 0, w, headerH);
+            ctx.strokeStyle = "#f4f1ea";
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, w, headerH);
+
+            // Text "PURBALINGGA"
+            ctx.fillStyle = "#f4f1ea";
+            ctx.font = "900 80px 'Times New Roman', serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(CONTENT.header, w/2, headerH/2 + 10);
+            ctx.font = "16px Arial, sans-serif";
+            ctx.fillText(`VOL. 1 NO. 1 | ${CONTENT.date.toUpperCase()}`, w/2, headerH/2 + 55);
+
+            // 3. IWAK Logo (Circle)
+            const logoX = 80;
+            const logoY = 200;
+            ctx.beginPath();
+            ctx.arc(logoX, logoY, 40, 0, Math.PI * 2);
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fill();
+            ctx.strokeStyle = "#d32f2f";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.fillStyle = "#f4f1ea";
+            ctx.font = "bold 24px Arial, sans-serif";
+            ctx.fillText("IWAK", logoX, logoY + 8);
+            ctx.font = "10px Arial";
+            ctx.fillText("MEMORY", logoX, logoY - 20);
+            ctx.fillText("SITE", logoX, logoY + 30);
+
+            // --- LAYOUT ATAS (Photo 1 - Kiri, Teks - Kanan) ---
+            const sectionTopY = 260;
+            
+            // Subhead
+            ctx.fillStyle = "#d32f2f";
+            ctx.font = "italic bold 24px 'Times New Roman', serif";
+            ctx.textAlign = "left";
+            ctx.fillText("Daily Moment in Purbalingga", 160, sectionTopY + 15);
+            
+            ctx.strokeStyle = "#1a1a1a";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(160, sectionTopY + 25);
+            ctx.lineTo(w - 40, sectionTopY + 25);
+            ctx.stroke();
+
+            // FOTO 1 (Top Left)
+            const img1X = 50;
+            const img1Y = sectionTopY + 40;
+            const imgSize = 280; // Ukuran foto standar
+            
+            ctx.save();
+            ctx.translate(img1X + imgSize/2, img1Y + imgSize/2);
+            ctx.rotate(-3 * Math.PI / 180); // Putar -3 derajat
+            ctx.translate(-(img1X + imgSize/2), -(img1Y + imgSize/2));
+            
+            // Frame Foto 1
+            ctx.fillStyle = "white";
+            ctx.shadowColor = "rgba(0,0,0,0.3)";
+            ctx.shadowBlur = 10;
+            ctx.fillRect(img1X - 5, img1Y - 5, imgSize + 10, imgSize + 10);
+            ctx.shadowBlur = 0;
+            
+            ctx.filter = 'grayscale(100%) contrast(1.2)';
+            if(photos[0]) ctx.drawImage(photos[0], img1X, img1Y, imgSize, imgSize);
+            ctx.filter = 'none';
+            
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(img1X, img1Y, imgSize, imgSize);
+            ctx.restore();
+
+            // Teks Artikel 1 (Kanan Foto 1)
+            const text1X = 360;
+            const text1Y = sectionTopY + 60;
+            const text1W = 400;
+            drawNewspaperText(ctx, CONTENT.articleTop, text1X, text1Y, text1W, 16, 'Times New Roman', '#000');
+
+            // --- PEMISAH TENGAH ---
+            const midY = sectionTopY + 320; 
+            ctx.beginPath();
+            ctx.moveTo(40, midY);
+            ctx.lineTo(w - 40, midY);
+            ctx.setLineDash([10, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // --- LAYOUT BAWAH (Teks - Kiri, Photo 2 - Kanan) ---
+            const sectionBottomY = midY + 30;
+
+            // Headline Bawah
+            ctx.fillStyle = "#1a1a1a";
+            ctx.font = "bold 28px 'Times New Roman', serif";
+            ctx.fillText(CONTENT.bottomHeadline, 50, sectionBottomY);
+
+            // FOTO 2 (Bottom Right) - FIX KOORDINAT
+            // Posisi foto harus berada di kanan: Width - Padding - UkuranFoto
+            const img2X = w - 40 - imgSize; 
+            const img2Y = sectionBottomY + 20;
+
+            ctx.save();
+            ctx.translate(img2X + imgSize/2, img2Y + imgSize/2);
+            ctx.rotate(4 * Math.PI / 180); // Putar 4 derajat
+            ctx.translate(-(img2X + imgSize/2), -(img2Y + imgSize/2));
+            
+            // Frame Foto 2
+            ctx.fillStyle = "white";
+            ctx.shadowColor = "rgba(0,0,0,0.3)";
+            ctx.shadowBlur = 10;
+            ctx.fillRect(img2X - 5, img2Y - 5, imgSize + 10, imgSize + 10);
+            ctx.shadowBlur = 0;
+
+            ctx.filter = 'grayscale(100%) contrast(1.2)';
+            if(photos[1]) ctx.drawImage(photos[1], img2X, img2Y, imgSize, imgSize);
+            ctx.filter = 'none';
+
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(img2X, img2Y, imgSize, imgSize);
+            ctx.restore();
+
+            // Teks Artikel 2 (Kiri Bawah)
+            const text2X = 50;
+            const text2Y = sectionBottomY + 20;
+            // Lebar kolom kiri adalah jarak dari kiri (50) ke posisi awal foto kanan (img2X)
+            const text2W = img2X - 20 - 50; 
+            drawNewspaperText(ctx, CONTENT.articleBottom, text2X, text2Y, text2W, 16, 'Times New Roman', '#000');
+
+            // --- FOOTER ---
+            const footerY = h - 40;
+            ctx.fillStyle = "#1a1a1a";
+            ctx.fillRect(0, footerY, w, 40);
+            ctx.fillStyle = "#f4f1ea";
+            ctx.font = "14px Courier New, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(CONTENT.footer, w/2, footerY + 22);
+        }
+
+        function drawNewspaperText(ctx, text, x, y, maxWidth, lineHeight, fontFamily, color) {
+            ctx.fillStyle = color;
+            ctx.font = `${lineHeight}px ${fontFamily}`;
+            ctx.textAlign = "justify";
+
+            const words = text.split(' ');
+            let line = '';
+            let currentY = y;
+
+            for(let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                const testWidth = metrics.width;
+
+                if (testWidth > maxWidth && n > 0) {
+                    ctx.fillText(line, x, currentY);
+                    line = words[n] + ' ';
+                    currentY += lineHeight + 4;
+                } else {
+                    line = testLine;
+                }
+            }
+            ctx.fillText(line, x, currentY);
+        }
+
+        function downloadImage() {
+            try {
+                const link = document.createElement('a');
+                link.download = `IWAK-Purbalingga-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch(e) {
+                alert("Gagal mendownload: " + e.message);
+            }
+        }
+    </script>
+</body>
+</html>
